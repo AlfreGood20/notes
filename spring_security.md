@@ -368,15 +368,85 @@ public class JWtService{
 			.getPayload(); // Finalmente obtenemos el payload
 	}
 
+	// Mediante este funcion obtendras el subject (como se identificara un usuario)
+	public String getSuject(String token){
+		return getClaims(token).getSubject();
+	}
+
+	// Para vereficar si el token esta expirado
+	private boolean isExpirate(String token){
+		return getClaims().getExpirate().before(new Date);
+	}
+
 	// Debemos de validar token
 	// Ciclo de debe tener
-	// 1. Obtener token y usuario
+	// 1. Recibir token y usuario
 	// 2. Obtener suject del token
-	// 3. Hay que verificar si el suject es igual al suject de usuario (correo, id, etc)
-	// 4. Por ultimo verificar si dicho token no esta expirado
+	// 3. Hay que verificar si el suject del token es igual al suject de usuario (correo, id, etc)
+	// 4. Por ultimo verificar si dicho token no esta expirado y
 	public boolean tokenIsValid(String token, CustomUserDetails user){
+		final String username = getClaims(token).getSuject();
 
+		return user.getUsername.isEquals(username)  && !isExpirate(token);
 	}
+}
+```
+
+#### Filtro JWT
+
+```java
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class FilterJwt extends OncePerRequestFilter{
+
+    private final JwtService jwtService;
+    private final CustomUserDetailsService userDetailsService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+
+        String exError = "JWT_ERROR";
+
+        try{
+
+            final String token = getToken(request);
+            log.info("Token recibido: "+token);
+
+            if(token == null){
+                request.setAttribute(exError, "Token no recibido");
+            }else{
+
+                final String correo = jwtService.obtenerSuject(token);
+
+                if(correo != null && SecurityContextHolder.getContext().getAuthentication() == null){
+                    CustomUserDetails usuario = (CustomUserDetails) userDetailsService.loadUserByUsername(correo);
+
+                    if(usuario.getUsername() == correo && jwtService.esValidoToken(token, usuario)){
+                        Authentication authentication = new UsernamePasswordAuthenticationToken(usuario, null, usuario.getAuthorities());
+
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        log.info("Guardamos con exito al usuario en el contexto de spring security");
+                    }
+                }
+            }
+
+        }catch(Exception ex){
+
+        }finally{
+            filterChain.doFilter(request, response);
+        }
+    }
+
+    private String getToken(HttpServletRequest request){
+        String authorization = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        if(authorization != null && authorization.startsWith("Bearer ")){
+            return authorization.substring(7);
+        }
+
+        return null;
+    }
 }
 ```
 
