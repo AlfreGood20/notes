@@ -1,8 +1,8 @@
 # Comandos git
 
-Ubicar la carpeta donde se trabajara
+Cambiar la descripcion de un commit (Sin haber hecho push a la rama)
 ```
-$ cd
+git commit --amend
 ```
 
 Inicializar esa carpeta como repositorio local
